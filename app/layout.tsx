@@ -3,6 +3,7 @@ import "./globals.css";
 import Link from "next/link";
 import { SessionProvider } from "@/components/SessionProvider";
 import { HeaderUser } from "@/components/HeaderUser";
+import { getAdminSession } from "@/lib/admin";
 
 const SITE_URL =
   process.env.NEXTAUTH_URL || "https://problemsammler.benjaminbalde.com";
@@ -34,33 +35,53 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const adminSession = await getAdminSession();
+  const isAdmin = !!adminSession;
+
   return (
     <html lang="de">
       <body className="min-h-screen bg-stone-50 font-sans text-stone-900 antialiased">
         <SessionProvider>
           <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/80 backdrop-blur">
-            <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
+            <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
               <Link href="/" className="flex items-center gap-2">
                 <span className="grid h-8 w-8 place-items-center rounded-lg bg-brand-600 font-bold text-white">
                   D
                 </span>
-                <span className="text-base font-semibold tracking-tight">
+                <span className="hidden text-base font-semibold tracking-tight sm:inline">
                   Probleme in Deutschland
                 </span>
               </Link>
-              <nav className="flex items-center gap-1 sm:gap-2">
-                <Link href="/kampagnen" className="btn-ghost hidden sm:inline-flex">
+              <nav className="flex items-center gap-1">
+                <Link
+                  href="/kampagnen"
+                  className="hidden rounded-lg px-3 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-100 sm:inline-flex"
+                >
                   Kampagnen
                 </Link>
-                <Link href="/neuer-beitrag" className="btn-primary">
-                  + Beitrag
+                <Link
+                  href="/neuer-beitrag"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
+                >
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m-8-8h16" />
+                  </svg>
+                  <span className="hidden sm:inline">Beitrag</span>
                 </Link>
-                <HeaderUser />
+                <span className="mx-1 hidden h-6 w-px bg-stone-200 sm:inline-block" aria-hidden="true" />
+                <HeaderUser isAdmin={isAdmin} />
               </nav>
             </div>
           </header>
@@ -68,6 +89,10 @@ export default function RootLayout({
           <footer className="mt-16 border-t border-stone-200 py-8 text-center text-sm text-stone-500">
             <p>Eine offene Plattform für konstruktive Diskussion.</p>
             <p className="mt-2 flex items-center justify-center gap-3 text-xs">
+              <Link href="/kampagnen" className="hover:text-stone-700 sm:hidden">
+                Kampagnen
+              </Link>
+              <span className="sm:hidden">·</span>
               <Link href="/feed.xml" className="hover:text-stone-700">RSS</Link>
               <span>·</span>
               <Link href="/api/export?format=json" className="hover:text-stone-700">
