@@ -2,6 +2,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
+import { ImageUploader } from "./ImageUploader";
 
 type Category = { name: string; slug: string };
 
@@ -16,6 +17,7 @@ export function NewPostForm({ categories }: { categories: Category[] }) {
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [anonName, setAnonName] = useState("");
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -64,6 +66,7 @@ export function NewPostForm({ categories }: { categories: Category[] }) {
           category: finalCategory,
           tags,
           anonName: anonName || undefined,
+          imageUrl: imageUrl || undefined,
         }),
       });
       if (!r.ok) {
@@ -189,6 +192,12 @@ export function NewPostForm({ categories }: { categories: Category[] }) {
           )}
         </div>
       </div>
+
+      <ImageUploader
+        value={imageUrl}
+        onChange={setImageUrl}
+        disabled={loading}
+      />
 
       {!session?.user && (
         <div>

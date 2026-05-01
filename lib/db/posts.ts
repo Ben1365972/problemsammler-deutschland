@@ -2,17 +2,21 @@
 // So bleibt der Wechsel zu einem anderen Provider/ORM später einfach.
 import { prisma } from "./prisma";
 
+export type SortMode = "neu" | "top" | "diskutiert";
+
 export type PostFilter = {
   categorySlug?: string;
   tagSlugs?: string[];
   search?: string;
-  sort?: "neu" | "top";
+  sort?: SortMode;
   take?: number;
   skip?: number;
+  includeHidden?: boolean;
 };
 
 export async function listPosts(filter: PostFilter = {}) {
   const where: any = {};
+  if (!filter.includeHidden) where.hidden = false;
   if (filter.categorySlug) {
     where.category = { slug: filter.categorySlug };
   }
@@ -24,18 +28,27 @@ export async function listPosts(filter: PostFilter = {}) {
   if (filter.search && filter.search.trim().length > 0) {
     const q = filter.search.trim();
     where.OR = [
-      { title: { contains: q } },
-      { body: { contains: q } },
+      { title: { contains: q, mode: "insensitive" } },
+      { body: { contains: q, mode: "insensitive" } },
     ];
+  }
+
+  let orderBy: any;
+  switch (filter.sort) {
+    case "top":
+      orderBy = [{ votes: { _count: "desc" } }, { createdAt: "desc" }];
+      break;
+    case "diskutiert":
+      orderBy = [{ comments: { _count: "desc" } }, { createdAt: "desc" }];
+      break;
+    default:
+      orderBy = { createdAt: "desc" };
   }
 
   const posts = await prisma.post.findMany({
     where,
-    orderBy:
-      filter.sort === "top"
-        ? [{ votes: { _count: "desc" } }, { createdAt: "desc" }]
-        : { createdAt: "desc" },
-    take: filter.take ?? 50,
+    orderBy,
+    take: filter.take ?? 20,
     skip: filter.skip ?? 0,
     include: {
       category: true,
@@ -47,8 +60,29 @@ export async function listPosts(filter: PostFilter = {}) {
   return posts;
 }
 
-export async function getPostById(id: string) {
-  return prisma.post.findUnique({
+export async function countPosts(
+  filter: Omit<PostFilter, "take" | "skip"> = {},
+) {
+  const where: any = {};
+  if (!filter.includeHidden) where.hidden = false;
+  if (filter.categorySlug) where.category = { slug: filter.categorySlug };
+  if (filter.tagSlugs && filter.tagSlugs.length > 0) {
+    where.AND = filter.tagSlugs.map((slug) => ({
+      tags: { some: { tag: { slug } } },
+    }));
+  }
+  if (filter.search && filter.search.trim().length > 0) {
+    const q = filter.search.trim();
+    where.OR = [
+      { title: { contains: q, mode: "insensitive" } },
+      { body: { contains: q, mode: "insensitive" } },
+    ];
+  }
+  return prisma.post.count({ where });
+}
+
+export async function getPostById(id: string, includeHidden = false) {
+  const post = await prisma.post.findUnique({
     where: { id },
     include: {
       category: true,
@@ -56,11 +90,15 @@ export async function getPostById(id: string) {
       _count: { select: { votes: true } },
       author: { select: { id: true, name: true } },
       comments: {
+        where: includeHidden ? undefined : { hidden: false },
         orderBy: { createdAt: "asc" },
         include: { author: { select: { id: true, name: true } } },
       },
     },
   });
+  if (!post) return null;
+  if (post.hidden && !includeHidden) return null;
+  return post;
 }
 
 export async function createPost(input: {
@@ -71,8 +109,8 @@ export async function createPost(input: {
   authorId?: string;
   anonSessionId?: string;
   anonName?: string;
+  imageUrl?: string;
 }) {
-  // Kategorie auflösen oder erstellen
   let categoryId: string | undefined;
   if (input.categoryName && input.categoryName.trim().length > 0) {
     const name = input.categoryName.trim();
@@ -85,7 +123,6 @@ export async function createPost(input: {
     categoryId = cat.id;
   }
 
-  // Tags auflösen / erstellen
   const tagIds: string[] = [];
   for (const raw of input.tagNames) {
     const name = raw.trim();
@@ -107,6 +144,7 @@ export async function createPost(input: {
       authorId: input.authorId,
       anonSessionId: input.authorId ? null : input.anonSessionId,
       anonName: input.authorId ? null : input.anonName?.slice(0, 40),
+      imageUrl: input.imageUrl,
       tags: {
         create: tagIds.map((tagId) => ({ tagId })),
       },
@@ -175,7 +213,6 @@ export async function toggleVote(input: {
   throw new Error("Kein User und keine anonyme Session");
 }
 
-// Hilfsfunktion: einfacher deutscher Slugifier
 export function slugify(input: string): string {
   return input
     .toLowerCase()

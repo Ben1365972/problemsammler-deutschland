@@ -25,6 +25,7 @@ const CreatePostSchema = z.object({
   category: z.string().max(80).optional(),
   tags: z.array(z.string().min(1).max(40)).max(10).default([]),
   anonName: z.string().max(40).optional(),
+  imageUrl: z.string().url().max(500).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -62,6 +63,7 @@ export async function POST(req: NextRequest) {
     authorId: userId,
     anonSessionId,
     anonName: parsed.data.anonName,
+    imageUrl: parsed.data.imageUrl,
   });
   return NextResponse.json({ post }, { status: 201 });
 }

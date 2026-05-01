@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useSession } from "next-auth/react";
+import { ReportButton } from "./ReportButton";
 
 type Comment = {
   id: string;
@@ -99,10 +100,13 @@ export function CommentSection({
         ) : (
           comments.map((c) => (
             <li key={c.id} className="rounded-lg border border-stone-200 bg-stone-50 p-4">
-              <div className="text-xs text-stone-500">
-                <strong className="text-stone-700">{c.authorName}</strong>
-                {" — "}
-                {new Date(c.createdAt).toLocaleString("de-DE")}
+              <div className="flex items-start justify-between gap-2 text-xs text-stone-500">
+                <div>
+                  <strong className="text-stone-700">{c.authorName}</strong>
+                  {" — "}
+                  {new Date(c.createdAt).toLocaleString("de-DE")}
+                </div>
+                <ReportButton target={{ commentId: c.id }} size="xs" />
               </div>
               <p className="mt-2 whitespace-pre-wrap text-sm text-stone-800">
                 {c.body}

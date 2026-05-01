@@ -9,8 +9,8 @@ export async function listCategories() {
 }
 
 export async function listTagsByPrefix(prefix: string, limit = 10) {
-  const p = prefix.trim().toLowerCase();
-  const where = p ? { name: { contains: p } } : {};
+  const p = prefix.trim();
+  const where = p ? { name: { contains: p, mode: "insensitive" as const } } : {};
   return prisma.tag.findMany({
     where,
     take: limit,

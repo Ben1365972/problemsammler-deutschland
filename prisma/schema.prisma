@@ -99,6 +99,8 @@ model Post {
   // Anonymer Fallback: bei anonymen Posts wird statt User die anonSessionId verwendet
   anonSessionId String?
   anonName    String?
+  imageUrl    String?
+  hidden      Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -107,9 +109,11 @@ model Post {
   tags        PostTag[]
   comments    Comment[]
   votes       Vote[]
+  reports     Report[]
 
   @@index([createdAt])
   @@index([categoryId])
+  @@index([hidden])
 }
 
 model PostTag {
@@ -128,10 +132,12 @@ model Comment {
   authorId      String?
   anonSessionId String?
   anonName      String?
+  hidden        Boolean  @default(false)
   createdAt     DateTime @default(now())
 
-  post   Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
-  author User? @relation(fields: [authorId], references: [id])
+  post    Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author  User?    @relation(fields: [authorId], references: [id])
+  reports Report[]
 
   @@index([postId])
 }
@@ -160,4 +166,25 @@ model AnonSession {
   createdAt DateTime @default(now())
   lastSeen  DateTime @updatedAt
   postCount Int      @default(0)
+}
+
+// Meldungen von Usern: Post oder Comment problematisch.
+// Genau eines von postId/commentId muss gesetzt sein.
+model Report {
+  id                   String    @id @default(cuid())
+  postId               String?
+  commentId            String?
+  reporterUserId       String?
+  reporterAnonSessionId String?
+  reason               String    // "spam" | "abuse" | "off_topic" | "other"
+  detail               String?
+  resolvedAt           DateTime?
+  resolvedAction       String?   // "hidden" | "dismissed" | "deleted"
+  createdAt            DateTime  @default(now())
+
+  post    Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+  comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+  @@index([resolvedAt])
+  @@index([createdAt])
 }

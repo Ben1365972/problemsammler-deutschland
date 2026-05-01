@@ -2,6 +2,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { ExportMenu } from "./ExportMenu";
 
 type Item = { slug: string; name: string; count: number };
 
@@ -18,7 +19,7 @@ export function FilterSidebar({
   activeCategory?: string;
   activeTags?: string[];
   q?: string;
-  sort?: "neu" | "top";
+  sort?: "neu" | "top" | "diskutiert";
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -30,6 +31,7 @@ export function FilterSidebar({
       if (!v) sp.delete(k);
       else sp.set(k, v);
     }
+    sp.delete("page");
     const s = sp.toString();
     return s ? `/?${s}` : "/";
   }
@@ -42,6 +44,7 @@ export function FilterSidebar({
     else current.push(slug);
     if (current.length) sp.set("tags", current.join(","));
     else sp.delete("tags");
+    sp.delete("page");
     const s = sp.toString();
     router.push(s ? `/?${s}` : "/");
   }
@@ -51,6 +54,7 @@ export function FilterSidebar({
     const sp = new URLSearchParams(params.toString());
     if (search.trim()) sp.set("q", search.trim());
     else sp.delete("q");
+    sp.delete("page");
     const s = sp.toString();
     router.push(s ? `/?${s}` : "/");
   }
@@ -74,7 +78,7 @@ export function FilterSidebar({
 
       <div className="card p-3">
         <h3 className="mb-2 text-sm font-semibold text-stone-700">Sortierung</h3>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Link
             href={buildHref({ sort: undefined })}
             className={`btn-secondary text-xs ${!sort || sort === "neu" ? "ring-2 ring-brand-500" : ""}`}
@@ -86,6 +90,12 @@ export function FilterSidebar({
             className={`btn-secondary text-xs ${sort === "top" ? "ring-2 ring-brand-500" : ""}`}
           >
             Beliebteste
+          </Link>
+          <Link
+            href={buildHref({ sort: "diskutiert" })}
+            className={`btn-secondary text-xs ${sort === "diskutiert" ? "ring-2 ring-brand-500" : ""}`}
+          >
+            Diskutiert
           </Link>
         </div>
       </div>
@@ -114,6 +124,8 @@ export function FilterSidebar({
           ))}
         </ul>
       </div>
+
+      <ExportMenu />
 
       <div className="card p-3">
         <h3 className="mb-2 text-sm font-semibold text-stone-700">Tags</h3>

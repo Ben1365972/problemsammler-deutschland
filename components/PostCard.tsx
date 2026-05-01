@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { ReportButton } from "./ReportButton";
 
 type Props = {
   post: {
     id: string;
     title: string;
     body: string;
+    imageUrl: string | null;
     createdAt: string | Date;
     category: { name: string; slug: string } | null;
     tags: { tag: { name: string; slug: string } }[];
@@ -36,8 +38,8 @@ function timeAgo(d: string | Date): string {
 export function PostCard({ post }: Props) {
   const author = post.author?.name || post.anonName || "Anonym";
   return (
-    <Link href={`/post/${post.id}`} className="block">
-      <article className="card p-5 transition hover:border-brand-300 hover:shadow-md">
+    <article className="card overflow-hidden p-5 transition hover:border-brand-300 hover:shadow-md">
+      <Link href={`/post/${post.id}`} className="block">
         <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500">
           {post.category && (
             <span className="chip-brand">{post.category.name}</span>
@@ -50,6 +52,17 @@ export function PostCard({ post }: Props) {
         <h2 className="mt-2 text-lg font-semibold leading-tight text-stone-900">
           {post.title}
         </h2>
+        {post.imageUrl && (
+          <div className="mt-3 overflow-hidden rounded-lg border border-stone-200">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={post.imageUrl}
+              alt=""
+              loading="lazy"
+              className="max-h-80 w-full object-cover"
+            />
+          </div>
+        )}
         <p className="mt-2 line-clamp-3 text-sm text-stone-600">{post.body}</p>
         {post.tags.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-1.5">
@@ -58,13 +71,14 @@ export function PostCard({ post }: Props) {
             ))}
           </div>
         )}
-        <div className="mt-4 flex items-center gap-4 text-sm text-stone-500">
-          <span className="flex items-center gap-1">▲ {post._count.votes}</span>
-          <span className="flex items-center gap-1">
-            💬 {post._count.comments}
-          </span>
-        </div>
-      </article>
-    </Link>
+      </Link>
+      <div className="mt-4 flex items-center gap-4 text-sm text-stone-500">
+        <span className="flex items-center gap-1">▲ {post._count.votes}</span>
+        <span className="flex items-center gap-1">💬 {post._count.comments}</span>
+        <span className="ml-auto">
+          <ReportButton target={{ postId: post.id }} />
+        </span>
+      </div>
+    </article>
   );
 }

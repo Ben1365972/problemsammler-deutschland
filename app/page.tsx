@@ -1,16 +1,20 @@
 import Link from "next/link";
-import { listPosts } from "@/lib/db/posts";
+import { listPosts, countPosts, type SortMode } from "@/lib/db/posts";
 import { listCategories, listAllTags } from "@/lib/db/meta";
 import { PostCard } from "@/components/PostCard";
 import { FilterSidebar } from "@/components/FilterSidebar";
+import { Pagination } from "@/components/Pagination";
 
 export const dynamic = "force-dynamic";
+
+const PAGE_SIZE = 20;
 
 type SearchParams = {
   category?: string;
   tags?: string;
   q?: string;
-  sort?: "neu" | "top";
+  sort?: SortMode;
+  page?: string;
 };
 
 export default async function Home({
@@ -20,12 +24,23 @@ export default async function Home({
 }) {
   const { category, tags, q, sort } = searchParams;
   const tagSlugs = tags ? tags.split(",").filter(Boolean) : undefined;
+  const page = Math.max(1, parseInt(searchParams.page || "1", 10) || 1);
+  const skip = (page - 1) * PAGE_SIZE;
 
-  const [posts, categories, allTags] = await Promise.all([
-    listPosts({ categorySlug: category, tagSlugs, search: q, sort }),
+  const [posts, total, categories, allTags] = await Promise.all([
+    listPosts({
+      categorySlug: category,
+      tagSlugs,
+      search: q,
+      sort,
+      take: PAGE_SIZE,
+      skip,
+    }),
+    countPosts({ categorySlug: category, tagSlugs, search: q, sort }),
     listCategories(),
     listAllTags(),
   ]);
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <div className="grid gap-6 md:grid-cols-[260px_1fr]">
@@ -59,21 +74,43 @@ export default async function Home({
           </p>
         </div>
 
+        {q && (
+          <p className="mb-4 text-sm text-stone-600">
+            {total === 0
+              ? <>Keine Treffer für <strong>&bdquo;{q}&ldquo;</strong>.</>
+              : <>{total} Treffer für <strong>&bdquo;{q}&ldquo;</strong>.</>}
+          </p>
+        )}
+
         {posts.length === 0 ? (
           <div className="card p-10 text-center text-stone-500">
-            <p className="text-lg">Noch keine Beiträge gefunden.</p>
+            <p className="text-lg">
+              {q || category || tagSlugs?.length
+                ? "Keine Beiträge mit diesen Filtern."
+                : "Noch keine Beiträge."}
+            </p>
             <Link href="/neuer-beitrag" className="btn-primary mt-4">
               Schreibe den ersten Beitrag
             </Link>
           </div>
         ) : (
-          <ul className="grid gap-4">
-            {posts.map((p) => (
-              <li key={p.id}>
-                <PostCard post={p as any} />
-              </li>
-            ))}
-          </ul>
+          <>
+            <ul className="grid gap-4">
+              {posts.map((p) => (
+                <li key={p.id}>
+                  <PostCard post={p as any} />
+                </li>
+              ))}
+            </ul>
+            {totalPages > 1 && (
+              <div className="mt-8">
+                <Pagination
+                  currentPage={page}
+                  totalPages={totalPages}
+                />
+              </div>
+            )}
+          </>
         )}
       </section>
     </div>
