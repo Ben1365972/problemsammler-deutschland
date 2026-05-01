@@ -2,7 +2,7 @@
 // So bleibt der Wechsel zu einem anderen Provider/ORM später einfach.
 import { prisma } from "./prisma";
 
-export type SortMode = "neu" | "top" | "diskutiert";
+export type SortMode = "neu" | "top" | "diskutiert" | string;
 
 export type PostFilter = {
   categorySlug?: string;
@@ -12,19 +12,40 @@ export type PostFilter = {
   take?: number;
   skip?: number;
   includeHidden?: boolean;
+  campaignSlug?: string;
+  campaignStatus?: string;
+  structuredFilters?: Record<string, string>;
 };
 
-export async function listPosts(filter: PostFilter = {}) {
+function buildPostWhere(filter: PostFilter): any {
   const where: any = {};
   if (!filter.includeHidden) where.hidden = false;
-  if (filter.categorySlug) {
-    where.category = { slug: filter.categorySlug };
-  }
+  if (filter.categorySlug) where.category = { slug: filter.categorySlug };
+  if (filter.campaignSlug) where.campaignSlug = filter.campaignSlug;
+  if (filter.campaignStatus) where.campaignStatus = filter.campaignStatus;
+
+  const andClauses: any[] = [];
   if (filter.tagSlugs && filter.tagSlugs.length > 0) {
-    where.AND = filter.tagSlugs.map((slug) => ({
-      tags: { some: { tag: { slug } } },
-    }));
+    for (const slug of filter.tagSlugs) {
+      andClauses.push({ tags: { some: { tag: { slug } } } });
+    }
   }
+  // Filter auf structuredData JSON-Felder.
+  // Postgres / Prisma: { path: ["feld"], equals: "wert" } für scalar,
+  // { path: ["feld"], array_contains: "wert" } für arrays (multiselect).
+  if (filter.structuredFilters) {
+    for (const [field, value] of Object.entries(filter.structuredFilters)) {
+      if (!value) continue;
+      andClauses.push({
+        OR: [
+          { structuredData: { path: [field], equals: value } },
+          { structuredData: { path: [field], array_contains: value } },
+        ],
+      });
+    }
+  }
+  if (andClauses.length > 0) where.AND = andClauses;
+
   if (filter.search && filter.search.trim().length > 0) {
     const q = filter.search.trim();
     where.OR = [
@@ -32,6 +53,11 @@ export async function listPosts(filter: PostFilter = {}) {
       { body: { contains: q, mode: "insensitive" } },
     ];
   }
+  return where;
+}
+
+export async function listPosts(filter: PostFilter = {}) {
+  const where = buildPostWhere(filter);
 
   let orderBy: any;
   switch (filter.sort) {
@@ -40,6 +66,28 @@ export async function listPosts(filter: PostFilter = {}) {
       break;
     case "diskutiert":
       orderBy = [{ comments: { _count: "desc" } }, { createdAt: "desc" }];
+      break;
+    case "konsens":
+      // Stimmen viele, Streit wenig (wenig Kommentare relativ zu Stimmen).
+      // Pragmatik: vorerst gleich wie 'top', aber Kommentare als Tie-Breaker invertiert.
+      orderBy = [
+        { votes: { _count: "desc" } },
+        { comments: { _count: "asc" } },
+        { createdAt: "desc" },
+      ];
+      break;
+    case "schmerzhaftest":
+      // Friedhof: Voting × Zeitaufwand.
+      // Postgres kann keine berechneten Sorts auf JSON ohne raw query — wir
+      // sortieren nach Voting absteigend, danach lassen wir den Client/Server
+      // optional re-rangen. Einfacher Fallback: nur nach votes desc.
+      orderBy = [{ votes: { _count: "desc" } }, { createdAt: "desc" }];
+      break;
+    case "in-ausarbeitung":
+      // Wishlist: erst alles in-ausarbeitung, dann der Rest nach Datum.
+      // Prisma kann keine custom enum-Reihung ohne raw — wir filtern auf der
+      // Page entsprechend (siehe app/kampagne/[slug]/page.tsx).
+      orderBy = { createdAt: "desc" };
       break;
     default:
       orderBy = { createdAt: "desc" };
@@ -63,21 +111,7 @@ export async function listPosts(filter: PostFilter = {}) {
 export async function countPosts(
   filter: Omit<PostFilter, "take" | "skip"> = {},
 ) {
-  const where: any = {};
-  if (!filter.includeHidden) where.hidden = false;
-  if (filter.categorySlug) where.category = { slug: filter.categorySlug };
-  if (filter.tagSlugs && filter.tagSlugs.length > 0) {
-    where.AND = filter.tagSlugs.map((slug) => ({
-      tags: { some: { tag: { slug } } },
-    }));
-  }
-  if (filter.search && filter.search.trim().length > 0) {
-    const q = filter.search.trim();
-    where.OR = [
-      { title: { contains: q, mode: "insensitive" } },
-      { body: { contains: q, mode: "insensitive" } },
-    ];
-  }
+  const where = buildPostWhere(filter);
   return prisma.post.count({ where });
 }
 
@@ -110,6 +144,9 @@ export async function createPost(input: {
   anonSessionId?: string;
   anonName?: string;
   imageUrl?: string;
+  campaignSlug?: string;
+  structuredData?: Record<string, any>;
+  campaignStatus?: string;
 }) {
   let categoryId: string | undefined;
   if (input.categoryName && input.categoryName.trim().length > 0) {
@@ -145,6 +182,9 @@ export async function createPost(input: {
       anonSessionId: input.authorId ? null : input.anonSessionId,
       anonName: input.authorId ? null : input.anonName?.slice(0, 40),
       imageUrl: input.imageUrl,
+      campaignSlug: input.campaignSlug,
+      structuredData: input.structuredData ?? undefined,
+      campaignStatus: input.campaignStatus,
       tags: {
         create: tagIds.map((tagId) => ({ tagId })),
       },

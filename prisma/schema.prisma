@@ -101,6 +101,12 @@ model Post {
   anonName    String?
   imageUrl    String?
   hidden      Boolean  @default(false)
+  // Optional: Beitrag gehört zu einer Kampagne. Slug aus lib/campaigns.ts.
+  campaignSlug   String?
+  // Strukturierte Zusatzfelder (z. B. rechtsquelle, profiteure …) — JSON.
+  structuredData Json?
+  // Workflow-Status für Kampagnen wie Wishlist (admin-gesetzt).
+  campaignStatus String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -114,6 +120,8 @@ model Post {
   @@index([createdAt])
   @@index([categoryId])
   @@index([hidden])
+  @@index([campaignSlug])
+  @@index([campaignStatus])
 }
 
 model PostTag {

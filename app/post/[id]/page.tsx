@@ -6,6 +6,10 @@ import { VoteButton } from "@/components/VoteButton";
 import { CommentSection } from "@/components/CommentSection";
 import { ReportButton } from "@/components/ReportButton";
 import { ShareButtons } from "@/components/ShareButtons";
+import { StructuredDataBlock } from "@/components/StructuredDataBlock";
+import { CampaignStatusBadge } from "@/components/CampaignStatusBadge";
+import { getCampaign } from "@/lib/campaigns";
+import { getAdminSession } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
 
@@ -53,23 +57,45 @@ export default async function PostPage({ params }: { params: { id: string } }) {
   if (!post) notFound();
 
   const shareUrl = `${SITE_URL}/post/${post.id}`;
+  const campaign = post.campaignSlug ? getCampaign(post.campaignSlug) : null;
+  const adminSession = await getAdminSession();
+  const canEditStatus = !!adminSession && !!campaign?.statusOptions;
 
   return (
     <div className="grid gap-6 md:grid-cols-[1fr_280px]">
       <article className="card p-6">
         <div className="flex flex-wrap items-center gap-2 text-xs text-stone-500">
-          {post.category && (
+          {campaign ? (
+            <Link
+              href={`/kampagne/${campaign.slug}`}
+              className="chip-brand hover:bg-brand-200"
+            >
+              {campaign.title}
+            </Link>
+          ) : post.category ? (
             <Link
               href={`/?category=${post.category.slug}`}
               className="chip-brand hover:bg-brand-200"
             >
               {post.category.name}
             </Link>
-          )}
+          ) : null}
           <span>•</span>
           <span>{post.author?.name || post.anonName || "Anonym"}</span>
           <span>•</span>
           <span>{new Date(post.createdAt).toLocaleString("de-DE")}</span>
+          {campaign?.statusOptions && (
+            <>
+              <span>•</span>
+              <CampaignStatusBadge
+                postId={post.id}
+                campaignSlug={campaign.slug}
+                current={post.campaignStatus}
+                options={campaign.statusOptions}
+                canEdit={canEditStatus}
+              />
+            </>
+          )}
         </div>
         <h1 className="mt-3 text-2xl font-bold text-stone-900">{post.title}</h1>
         {post.imageUrl && (
@@ -78,13 +104,24 @@ export default async function PostPage({ params }: { params: { id: string } }) {
             <img
               src={post.imageUrl}
               alt=""
-              className="max-h-[60vh] w-full object-contain bg-stone-50"
+              className="max-h-[60vh] w-full bg-stone-50 object-contain"
             />
           </div>
         )}
+
+        {campaign && (
+          <div className="mt-5">
+            <StructuredDataBlock
+              campaign={campaign}
+              data={post.structuredData as any}
+            />
+          </div>
+        )}
+
         <div className="prose prose-stone mt-4 max-w-none whitespace-pre-wrap text-stone-800">
           {post.body}
         </div>
+
         {post.tags.length > 0 && (
           <div className="mt-5 flex flex-wrap gap-1.5">
             {post.tags.map(({ tag }) => (
@@ -122,13 +159,37 @@ export default async function PostPage({ params }: { params: { id: string } }) {
 
       <aside className="md:sticky md:top-20 md:h-max">
         <div className="card p-4">
-          <h3 className="text-sm font-semibold text-stone-700">Über diesen Beitrag</h3>
-          <p className="mt-2 text-xs text-stone-500">
-            Du kannst mit ▲ zustimmen und Kommentare schreiben — anonym oder mit Account.
-          </p>
-          <Link href="/" className="btn-secondary mt-4 w-full">
-            ← Zurück zur Liste
-          </Link>
+          <h3 className="text-sm font-semibold text-stone-700">
+            {campaign ? "Über diese Kampagne" : "Über diesen Beitrag"}
+          </h3>
+          {campaign ? (
+            <>
+              <p className="mt-2 text-xs text-stone-600">{campaign.tagline}</p>
+              <p className="mt-2 text-xs text-stone-500">{campaign.description}</p>
+              <Link
+                href={`/kampagne/${campaign.slug}`}
+                className="btn-secondary mt-4 w-full text-center"
+              >
+                Zur Kampagne
+              </Link>
+              <Link
+                href={`/kampagne/${campaign.slug}/neu`}
+                className="btn-primary mt-2 w-full text-center"
+              >
+                + Eigener Beitrag
+              </Link>
+            </>
+          ) : (
+            <>
+              <p className="mt-2 text-xs text-stone-500">
+                Du kannst mit ▲ zustimmen und Kommentare schreiben — anonym oder mit
+                Account.
+              </p>
+              <Link href="/" className="btn-secondary mt-4 w-full">
+                ← Zurück zur Liste
+              </Link>
+            </>
+          )}
         </div>
       </aside>
     </div>

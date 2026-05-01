@@ -53,9 +53,12 @@ export default function RootLayout({
                   Probleme in Deutschland
                 </span>
               </Link>
-              <nav className="flex items-center gap-2">
+              <nav className="flex items-center gap-1 sm:gap-2">
+                <Link href="/kampagnen" className="btn-ghost hidden sm:inline-flex">
+                  Kampagnen
+                </Link>
                 <Link href="/neuer-beitrag" className="btn-primary">
-                  + Beitrag schreiben
+                  + Beitrag
                 </Link>
                 <HeaderUser />
               </nav>

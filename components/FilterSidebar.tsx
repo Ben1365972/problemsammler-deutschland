@@ -19,7 +19,7 @@ export function FilterSidebar({
   activeCategory?: string;
   activeTags?: string[];
   q?: string;
-  sort?: "neu" | "top" | "diskutiert";
+  sort?: string;
 }) {
   const router = useRouter();
   const params = useSearchParams();
