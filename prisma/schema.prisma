@@ -1,0 +1,163 @@
+// Prisma Schema
+// =====================================================================
+// HINWEIS für Provider-Wechsel:
+//   Dieses Projekt nutzt standardmäßig SQLite (lokale Datei prisma/dev.db).
+//   Um auf Postgres (z.B. Supabase oder Neon) zu wechseln:
+//   1. Hier "provider = sqlite" ändern zu "provider = postgresql"
+//   2. In .env DATABASE_URL auf den Postgres-Connection-String setzen
+//   3. `npx prisma migrate dev --name init` ausführen
+//   Mehr Details siehe README.md
+// =====================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------- NextAuth-Modelle ----------
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?
+  createdAt     DateTime  @default(now())
+
+  posts    Post[]
+  comments Comment[]
+  votes    Vote[]
+  accounts Account[]
+  sessions Session[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------- Anwendungs-Modelle ----------
+model Category {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?
+  isPredefined Boolean @default(false)
+  createdAt   DateTime @default(now())
+  posts       Post[]
+}
+
+model Tag {
+  id        String    @id @default(cuid())
+  name      String    @unique
+  slug      String    @unique
+  createdAt DateTime  @default(now())
+  posts     PostTag[]
+}
+
+model Post {
+  id          String   @id @default(cuid())
+  title       String
+  body        String
+  categoryId  String?
+  authorId    String?
+  // Anonymer Fallback: bei anonymen Posts wird statt User die anonSessionId verwendet
+  anonSessionId String?
+  anonName    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  category    Category? @relation(fields: [categoryId], references: [id])
+  author      User?     @relation(fields: [authorId], references: [id])
+  tags        PostTag[]
+  comments    Comment[]
+  votes       Vote[]
+
+  @@index([createdAt])
+  @@index([categoryId])
+}
+
+model PostTag {
+  postId String
+  tagId  String
+  post   Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  tag    Tag  @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([postId, tagId])
+}
+
+model Comment {
+  id            String   @id @default(cuid())
+  postId        String
+  body          String
+  authorId      String?
+  anonSessionId String?
+  anonName      String?
+  createdAt     DateTime @default(now())
+
+  post   Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author User? @relation(fields: [authorId], references: [id])
+
+  @@index([postId])
+}
+
+model Vote {
+  id            String   @id @default(cuid())
+  postId        String
+  userId        String?
+  anonSessionId String?
+  value         Int      @default(1) // immer 1, Toggle = vorhanden / nicht vorhanden
+  createdAt     DateTime @default(now())
+
+  post Post  @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id])
+
+  // Doppel-Votes verhindern
+  @@unique([postId, userId])
+  @@unique([postId, anonSessionId])
+  @@index([postId])
+}
+
+// Zur Anti-Spam-Erkennung anonymer Sitzungen
+model AnonSession {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  createdAt DateTime @default(now())
+  lastSeen  DateTime @updatedAt
+  postCount Int      @default(0)
+}
