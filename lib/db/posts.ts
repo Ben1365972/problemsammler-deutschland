@@ -253,11 +253,12 @@ export async function toggleVote(input: {
   throw new Error("Kein User und keine anonyme Session");
 }
 
+// MUSS deckungsgleich mit prisma/seed.ts:slugify() sein, sonst stoßen wir bei
+// upsert auf Name-Unique-Constraints, weil die geseedeten Kategorien einen
+// anderen Slug bekommen würden.
 export function slugify(input: string): string {
   return input
     .toLowerCase()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
     .replace(/ä/g, "ae")
     .replace(/ö/g, "oe")
     .replace(/ü/g, "ue")
