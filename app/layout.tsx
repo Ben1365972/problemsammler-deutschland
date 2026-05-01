@@ -66,19 +66,19 @@ export default async function RootLayout({
                 </Link>
                 <Link
                   href="/neuer-beitrag"
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white shadow-sm transition hover:bg-brand-700"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-brand-600 px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-700 sm:px-4"
                 >
                   <svg
-                    className="h-4 w-4"
+                    className="h-5 w-5"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="2.5"
+                    strokeWidth="3"
                     viewBox="0 0 24 24"
                     aria-hidden="true"
                   >
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m-8-8h16" />
                   </svg>
-                  <span className="hidden sm:inline">Beitrag</span>
+                  <span>Beitrag</span>
                 </Link>
                 <span className="mx-1 hidden h-6 w-px bg-stone-200 sm:inline-block" aria-hidden="true" />
                 <HeaderUser isAdmin={isAdmin} />
